@@ -1,8 +1,13 @@
-# Sistema de Solicitudes - Tutorial y Documentación
+# API Ticketing
 
-## Visión general
+## Descripción
+
+Ésta es una API RESTful para gestionar solicitudes de soporte, implementada con Node.js, Express y SQLite. Permite la autenticación de usuarios, creación de solicitudes y gestión de roles (cliente, soporte y administrador).
+
 - **Tecnologías**: Node.js, Express, SQLite.
-- **Arquitectura**: servidor Express con rutas separadas para `auth`, `users` y `requests`. SQLite como base de datos embebida.
+- **Arquitectura**: servidor Express con rutas separadas para `auth`, `users` y `requests`. SQLite como base de datos 
+embebida.
+- **Autenticación**: JWT (JSON Web Tokens)
 - **Roles soportados**: `cliente`, `soporte`, `admin`.
 
 ## Estructura del proyecto
@@ -15,21 +20,25 @@
 ## Modelos de datos
 - **users**
   - `id`: INTEGER, autoincremental
-  - `name`: TEXT
+  - `username`: TEXT
+  - `password`: TEXT
   - `role`: TEXT (`cliente` | `soporte` | `admin`) obligatorio
 - **requests**
   - `id`: INTEGER, autoincremental
   - `user_id`: INTEGER (FK a `users.id`)
+  -code TEXT
   - `title`: TEXT
   - `description`: TEXT
   - `status`: TEXT, por defecto `pendiente`
   - `response`: TEXT (opcional)
+  - `support_name`: TEXT
+  - `created_at`: TIMESTAMP
 
 ## Endpoints
 
 ### Autenticación (login simple que crea usuario)
 - Método: POST `/auth/login`
-- Body JSON: `{ "name": "Ana", "role": "cliente" }`
+- Body JSON: `{ "name": "Ana", "role": "cliente", "password":"password123" }`
 - Respuesta: `{ id, name, role }`
 
 ### Usuarios
@@ -40,7 +49,7 @@
 - POST `/requests`: crea solicitud. Body: `{ user_id, title, description }`
 - GET `/requests`: lista solicitudes
   - Si `role=cliente`, exige `user_id` y filtra por ese usuario
-  - Si `role=soporte` o `role=admin`, devuelve todas
+  - Si `role=admin` o `role=soporte`, devuelve todas
 - PUT `/requests/:id`: actualiza `status` y `response`
 
 ## Cómo ejecutar el proyecto
@@ -50,7 +59,7 @@ npm install
 ```
 2. Variables de entorno (opcional): crea `.env` si quieres cambiar el puerto:
 ```bash
-PORT=5000
+PORT=4000
 ```
 3. Ejecuta el servidor:
 ```bash
@@ -62,12 +71,15 @@ npm start
 
 > Los ejemplos a continuación están formateados para PowerShell (Windows) con `^` como continuación de línea.
 
-- Crear usuario (login)
+- Crear usuario
 ```bash
-curl -X POST http://localhost:4000/auth/login ^
+curl -X POST http://localhost:4000/auth/register ^
   -H "Content-Type: application/json" ^
   -d "{\"name\":\"Ana\",\"role\":\"cliente\"}"
 ```
+Para el manejo y revisión del proyecto en su totalidad, se debe realizar la creación de usuarios como se ha mostrado, también se añade imagen demostrativa:
+
+![alt text](image-1.png)
 
 - Listar usuarios
 ```bash
@@ -99,15 +111,12 @@ curl -X PUT http://localhost:4000/requests/1 ^
 ```
 
 ## Flujo típico de uso
-1. Un usuario “inicia sesión” vía `/auth/login` (se crea un registro en `users`).
+1. Un usuario “inicia sesión” vía `/auth/login`.
 2. Un cliente crea solicitudes en `/requests` con su `user_id`.
 3. Soporte/Admin consulta todas las solicitudes; Cliente solo ve las suyas.
 4. Soporte/Admin actualiza `status` y `response` en `/requests/:id`.
 
 ## Consideraciones y mejores prácticas
-- **Validación**: actualmente no hay validación de payload. Agregar checks para `name`, `role`, `title`, `description`, `status`.
-- **Autenticación real**: el “login” actual solo crea usuarios. Para producción, usar JWT, contraseñas, y control de acceso por rol.
-- **Índices y FK**: considerar índice en `requests.user_id`. Activar `PRAGMA foreign_keys = ON` si fuera necesario.
 - **Estados**: estandarizar `status` (ej.: `pendiente`, `en_proceso`, `resuelta`, `cerrada`) con un CHECK.
 - **Paginación**: añadir `limit/offset` en `GET /requests` para grandes volúmenes.
 - **Errores**: unificar formato de errores y logs.
@@ -116,7 +125,6 @@ curl -X PUT http://localhost:4000/requests/1 ^
 - Agregar `GET /requests/:id` para ver detalle.
 - Añadir borrado suave de solicitudes (`deleted_at`) en lugar de `DELETE`.
 - Filtrar por `status` y ordenar por fecha de creación.
-- Implementar middleware de autorización por rol.
 
 ### Ejemplo de filtro por estado (idea de consulta SQL)
 ```sql
